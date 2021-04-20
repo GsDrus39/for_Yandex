@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h1 class="title">
+  Удаление рейсов
+</h1>
+{% if success %}
+<h1>Успешно!</h1>
+{% endif %}
+<form method="POST" action="/creation_menu/delete">
+    <div class="field">
+        <div class="control">
+            <select class="input is-large" name="lines">
+                {% for i in lst%}
+                    <option value="{{ i['id'] }}">Из {{i['from_']}} в {{i['to_']}}; отправление - {{i['time']}}</option>
+                {% endfor %}
+            </select>
+        </div>
+    </div>
+    <button class="button is-block is-info is-large is-fullwidth" value="create">Удалить</button>
+</form>
+{% endblock %}

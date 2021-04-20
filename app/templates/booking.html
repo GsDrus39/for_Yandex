@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h1 class="title">
+  Заказ и печать билетов
+</h1>
+{% with messages = get_flashed_messages() %}
+{% if messages %}
+    <div class="notification is-danger">
+        {{ messages[0] }}
+    </div>
+{% endif %}
+{% endwith %}
+<form method="POST" action="/booking">
+    <div class="field">
+        <div class="control">
+            <input class="input is-large" type="text" name="FIO" placeholder="ФИО" autofocus="">
+        </div>
+    </div>
+
+    <div class="field">
+        <div class="control">
+            <select class="input is-large" name="from">
+              <option value="u1">1</option>
+              <option value="u2">2</option>
+              <option value="u3">3</option>
+            </select>
+        </div>
+    </div>
+    <div class="field">
+        <div class="control">
+            <select class="input is-large" name="to">
+              <option value="u1">1</option>
+              <option value="u2">2</option>
+              <option value="u3">3</option>
+            </select>
+        </div>
+    </div>
+    <div class="field">
+        <div class="control">
+            <input class="input is-large" type="date" name="date">
+        </div>
+    </div>
+    <div class="field">
+        <div class="control">
+            <select class="input is-large" name="class">
+              <option value="eco">Эконом</option>
+              <option value="bis">Бизнес</option>
+            </select>
+        </div>
+    </div>
+    <button class="button is-block is-info is-large is-fullwidth">Заказать</button>
+</form>
+{% endblock %}

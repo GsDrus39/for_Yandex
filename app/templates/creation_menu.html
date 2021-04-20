@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h1 class="title">
+  Создание и изменение рейсов
+</h1>
+{% if success %}
+<h1>Успешно!</h1>
+{% endif %}
+<form method="GET" action="/creation_menu/create">
+    <button class="button is-block is-info is-large is-fullwidth" value="create">Создать</button>
+</form>
+<br>
+<form method="GET" action="/creation_menu/modify">
+    <button class="button is-block is-info is-large is-fullwidth" value="modify">Изменить</button>
+</form>
+<br>
+<form method="GET" action="/creation_menu/delete">
+    <button class="button is-block is-info is-large is-fullwidth" value="delete">Удалить</button>
+</form>
+{% endblock %}
