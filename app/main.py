@@ -38,7 +38,7 @@ def delete():
             res.append({'id': line.id, 'from_': line.from_,
                         'to_': line.to_, 'time': line.time})
         return render_template('delete.html', name=current_user.name, role=current_user.urole, lst=res)
-    elif request.method == 'POST':  # TODO перекидывание заказавших на другой рейс и уведомление об этом
+    elif request.method == 'DELETE':  # TODO перекидывание заказавших на другой рейс и уведомление об этом
         Line.query.filter(Line.id == request.form.get('lines')).delete()
         db.session.commit()
         return render_template('creation_menu.html', success=True, name=current_user.name, role=current_user.urole)
@@ -58,7 +58,7 @@ def create():
         ple = request.form.get('eco')
         pple = request.form.get('ecop')
         if not all([from_, to_, time, plb, pplb, ple, pple]):
-            flash('Please fill ALL fields and try again.')
+            flash('Заполните ВСЕ поля.')
             return redirect(url_for('main.create'))
         a = time.split(':')
         time = datetime.time(int(a[0]), int(a[1]))
@@ -70,28 +70,71 @@ def create():
         return render_template('creation_menu.html', success=True, name=current_user.name, role=current_user.urole)
 
 
-@main.route('/creation_menu/modify')
+@main.route('/creation_menu/modify', methods=['GET', 'POST', 'PUT'])
 @login_required(role='admin')
 def modify():
-    return 'modify'
+    if request.method == 'GET':
+        res = []
+        lines = Line.query.all()
+        for line in lines:
+            res.append({'id': line.id, 'from_': line.from_,
+                        'to_': line.to_, 'time': line.time})
+        return render_template('modify.html', name=current_user.name, lst1=res, role=current_user.urole, trigger=False)
+    elif request.method == 'POST' and request.form.get('act'):
+        lst = []
+        id_ = request.form.get('lines')
+        a = Line.query.filter(Line.id == id_).all()[0]
+        lst += [a.time, a.from_, a.to_,
+                int(a.seats.split(', ')[1]), int(a.prices.split(', ')[1]),
+                int(a.seats.split(', ')[0]), int(a.prices.split(', ')[0]),
+                id_]
+        return render_template('modify.html', name=current_user.name, lst=lst, role=current_user.urole, trigger=True)
+    elif request.method == 'POST':
+        id_ = request.form.get('id')
+        from_ = request.form.get('from')
+        to_ = request.form.get('to')
+        time = request.form.get('time')
+        plb = request.form.get('bui')
+        pplb = request.form.get('buip')
+        ple = request.form.get('eco')
+        pple = request.form.get('ecop')
+        if not all([from_, to_, time, plb, pplb, ple, pple]):
+            flash('Заполните ВСЕ поля.')
+            return redirect(url_for('main.create'))
+        a = time.split(':')
+        time = datetime.time(int(a[0]), int(a[1]))
+        line = Line(id=id_, time=time, seats=f'{plb}, {ple}',
+                    prices=f'{pplb}, {pple}',
+                    from_=from_, to_=to_)
+        Line.query.filter(Line.id == id_).delete()
+        db.session.add(line)
+        db.session.commit()
+        return render_template('creation_menu.html', success=True, name=current_user.name, role=current_user.urole)
 
 
 @main.route('/booking', methods=['GET', 'POST'])
 @login_required(role='user')
 def booking():
     if request.method == 'GET':
-        return render_template('booking.html', name=current_user.name, role=current_user.urole)
+        res = []
+        lines = Line.query.all()
+        for line in lines:
+            res.append({'id': line.id, 'from_': line.from_,
+                        'to_': line.to_, 'time': line.time})
+        return render_template('booking.html', name=current_user.name, role=current_user.urole, lst=res)
     elif request.method == 'POST':
-        fio = request.form.get('FIO')  # TODO Валидация фио; выбор пунктов назначения из списков
-        from_ = request.form.get('from')
-        to_ = request.form.get('to')
+        fio = request.form.get('FIO')  # TODO Валидация фио
+        line_id = request.form.get('fromto')
         date = request.form.get('date')
         class_ = request.form.get('class')
-        if not all([fio, from_, to_, date, class_]):
-            flash('Please fill ALL fields and try again.')
+        if len(fio.split()) != 3:
+            flash('Введите ФИО.')
+            return redirect(url_for('main.booking'))
+        if not all([fio, line_id, date, class_]):
+            flash('Заполните ВСЕ поля.')
             return redirect(url_for('main.booking'))
         date = date.split('-')
         if datetime.datetime.today().date() > datetime.datetime(int(date[0]), int(date[1]), int(date[2])).date():
-            flash('Please check your date and try again.')
+            flash('Введите реальную дату.')
             return redirect(url_for('main.booking'))
         return 'Done'  # TODO сопсна сам заказ

@@ -2,7 +2,7 @@
 
 {% block content %}
 <h1 class="title">
-  Заказ и печать билетов
+  Заказ билетов
 </h1>
 {% with messages = get_flashed_messages() %}
 {% if messages %}
@@ -20,19 +20,10 @@
 
     <div class="field">
         <div class="control">
-            <select class="input is-large" name="from">
-              <option value="u1">1</option>
-              <option value="u2">2</option>
-              <option value="u3">3</option>
-            </select>
-        </div>
-    </div>
-    <div class="field">
-        <div class="control">
-            <select class="input is-large" name="to">
-              <option value="u1">1</option>
-              <option value="u2">2</option>
-              <option value="u3">3</option>
+            <select class="input is-large" name="fromto">
+                {% for i in lst%}
+                    <option value="{{ i['id'] }}">Из {{i['from_']}} в {{i['to_']}}; отправление - {{i['time']}}</option>
+                {% endfor %}
             </select>
         </div>
     </div>
