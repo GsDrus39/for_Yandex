@@ -2,10 +2,23 @@ from flask import Blueprint, render_template, request, redirect, flash, url_for
 from flask_login import current_user
 from .auth import login_required
 import datetime
-from .models import Line
+from .models import Line, Ticket, Warnin
 from . import db
+from docxtpl import DocxTemplate
 
 main = Blueprint('main', __name__)
+
+
+def get_tickets(user_id):
+    tickets = Ticket.query.filter(Ticket.user_id == user_id).all()
+    res = []
+    for i in tickets:
+        ln = Line.query.filter(Line.id == i.line_id).first()
+        try:
+            res.append([f'{str(i.fio)} {str(i.flight_date)} {ln.from_} - {ln.to_} {ln.time}', i.id])
+        except AttributeError:
+            pass
+    return res
 
 
 @main.route('/')
@@ -16,32 +29,54 @@ def index():
         return render_template('index.html')
 
 
-@main.route('/profile')
+@main.route('/print')
+@login_required()
+def print_():
+    if request.method == 'GET':
+        doc = DocxTemplate("app/tmpl.docx")
+        id_ = request.args.get('print')
+        ticket = Ticket.query.filter(Ticket.id == id_).first()
+        line = Line.query.filter(Line.id == ticket.line_id).first()
+        context = {
+            'line_id': ticket.id,
+            'from': line.from_,
+            'to': line.to_,
+            'date': ticket.flight_date,
+            'time': line.time,
+            'fio': ticket.fio,
+            'class': ticket.class_
+        }
+        doc.render(context)
+        doc.save('app/static/res.docx')
+        return '<a href="static/res.docx" download="">Скачать</a>'
+
+
+@main.route('/profile', methods=['GET', 'POST'])
 @login_required()
 def profile():
-    return render_template('profile.html', name=current_user.name, role=current_user.urole)
+    if request.method == 'GET':
+        warnins = Warnin.query.filter(Warnin.user_id == current_user.id).all()
+        warnings = []
+        for i in warnins:
+            warnings.append(i.text)
+
+        return render_template('profile.html', role=current_user.urole,
+                               warnings=warnings, tickets=get_tickets(current_user.id))
+    elif request.method == 'POST':
+        Warnin.query.filter(Warnin.id == request.form.get('gotit')).delete()
+        db.session.commit()
+        warnins = Warnin.query.filter(Warnin.user_id == current_user.id).all()
+        warnings = []
+        for i in warnins:
+            warnings.append([i.text, i.id])
+        return render_template('profile.html', role=current_user.urole,
+                               warnings=warnings, tickets=get_tickets(current_user.id))
 
 
 @main.route('/creation_menu')
 @login_required(role='admin')
 def creation():
     return render_template('creation_menu.html', name=current_user.name, role=current_user.urole)
-
-
-@main.route('/creation_menu/delete', methods=['GET', 'POST'])
-@login_required(role='admin')
-def delete():
-    if request.method == 'GET':
-        res = []
-        lines = Line.query.all()
-        for line in lines:
-            res.append({'id': line.id, 'from_': line.from_,
-                        'to_': line.to_, 'time': line.time})
-        return render_template('delete.html', name=current_user.name, role=current_user.urole, lst=res)
-    elif request.method == 'DELETE':  # TODO перекидывание заказавших на другой рейс и уведомление об этом
-        Line.query.filter(Line.id == request.form.get('lines')).delete()
-        db.session.commit()
-        return render_template('creation_menu.html', success=True, name=current_user.name, role=current_user.urole)
 
 
 @main.route('/creation_menu/create', methods=['GET', 'POST'])
@@ -67,7 +102,34 @@ def create():
                     from_=from_, to_=to_)
         db.session.add(line)
         db.session.commit()
-        return render_template('creation_menu.html', success=True, name=current_user.name, role=current_user.urole)
+        warnins = Warnin.query.filter(Warnin.user_id == current_user.id).all()
+        warnings = []
+        for i in warnins:
+            warnings.append(i.text)
+        return redirect(url_for('main.profile'))
+
+
+@main.route('/creation_menu/delete', methods=['GET', 'POST'])
+@login_required(role='admin')
+def delete():
+    if request.method == 'GET':
+        res = []
+        lines = Line.query.all()
+        for line in lines:
+            res.append({'id': line.id, 'from_': line.from_,
+                        'to_': line.to_, 'time': line.time})
+        return render_template('delete.html', name=current_user.name, role=current_user.urole, lst=res)
+    elif request.method == 'POST':
+        ln = Line.query.filter(Line.id == request.form.get('lines')).first()
+        users = Ticket.query.filter(Ticket.line_id == request.form.get('lines')).all()
+        for i in users:
+            a = f'Рейс {ln.from_} - {ln.to_};' \
+                f' {i.flight_date} {ln.time} отменен или перенесен. Перезакажите и перепечатайте билет'
+            warnin = Warnin(user_id=i.user_id, text=a)
+            db.session.add(warnin)
+        Line.query.filter(Line.id == request.form.get('lines')).delete()
+        db.session.commit()
+        return redirect(url_for('main.profile'))
 
 
 @main.route('/creation_menu/modify', methods=['GET', 'POST', 'PUT'])
@@ -106,10 +168,17 @@ def modify():
         line = Line(id=id_, time=time, seats=f'{plb}, {ple}',
                     prices=f'{pplb}, {pple}',
                     from_=from_, to_=to_)
+        ln = Line.query.filter(Line.id == id_).first()
+        users = Ticket.query.filter(Ticket.line_id == id_).all()
+        for i in users:
+            a = f'Рейс {ln.from_} - {ln.to_};' \
+                f' {i.flight_date} {ln.time} отменен или перенесен. Перезакажите и перепечатайте билет'
+            warnin = Warnin(user_id=i.user_id, text=a)
+            db.session.add(warnin)
         Line.query.filter(Line.id == id_).delete()
         db.session.add(line)
         db.session.commit()
-        return render_template('creation_menu.html', success=True, name=current_user.name, role=current_user.urole)
+        return redirect(url_for('main.profile'))
 
 
 @main.route('/booking', methods=['GET', 'POST'])
@@ -123,12 +192,12 @@ def booking():
                         'to_': line.to_, 'time': line.time})
         return render_template('booking.html', name=current_user.name, role=current_user.urole, lst=res)
     elif request.method == 'POST':
-        fio = request.form.get('FIO')  # TODO Валидация фио
+        fio = request.form.get('FIO')
         line_id = request.form.get('fromto')
         date = request.form.get('date')
         class_ = request.form.get('class')
         if len(fio.split()) != 3:
-            flash('Введите ФИО.')
+            flash('Проверьте ФИО.')
             return redirect(url_for('main.booking'))
         if not all([fio, line_id, date, class_]):
             flash('Заполните ВСЕ поля.')
@@ -137,4 +206,25 @@ def booking():
         if datetime.datetime.today().date() > datetime.datetime(int(date[0]), int(date[1]), int(date[2])).date():
             flash('Введите реальную дату.')
             return redirect(url_for('main.booking'))
-        return 'Done'  # TODO сопсна сам заказ
+        tickets = Ticket.query.filter(Ticket.flight_date == datetime.datetime(int(date[0]),
+                                                                              int(date[1]),
+                                                                              int(date[2])).date(),
+                                      Ticket.line_id == line_id).all()
+        seats = Line.query.filter(Line.id == line_id).all()[0].seats
+        b, e = list(map(int, seats.split(', ')))
+        for t in tickets:
+            if t.class_ == 'bui':
+                b -= 1
+            else:
+                e -= 1
+        if class_ == 'bui' and b == 0:
+            flash('Билетов нет, выберите другой класс или рейс.')
+            return redirect(url_for('main.booking'))
+        if class_ == 'eco' and e == 0:
+            flash('Билетов нет, выберите другой класс или рейс.')
+            return redirect(url_for('main.booking'))
+        ticket = Ticket(flight_date=datetime.datetime(int(date[0]), int(date[1]), int(date[2])).date(),
+                        fio=fio, class_=class_, line_id=line_id, user_id=current_user.id)
+        db.session.add(ticket)
+        db.session.commit()
+        return redirect(url_for('main.profile'))

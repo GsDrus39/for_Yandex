@@ -23,4 +23,12 @@ class Ticket(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     flight_date = db.Column(db.Date)
     fio = db.Column(db.String(100))
-    plane_id = db.Column(db.Integer, db.ForeignKey('line.id'))
+    class_ = db.Column(db.String(100))
+    line_id = db.Column(db.Integer, db.ForeignKey('line.id'))
+    user_id = db.Column(db.Integer)
+
+
+class Warnin(UserMixin, db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer)
+    text = db.Column(db.String(1000))

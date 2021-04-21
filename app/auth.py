@@ -13,8 +13,10 @@ def login_required(role="ANY"):
     def wrapper(fn):
         @wraps(fn)
         def decorated_view(*args, **kwargs):
-            print(current_user.urole, role)
-            if (current_user.urole != role) and (role != "ANY"):
+            try:
+                if (current_user.urole != role) and (role != "ANY"):
+                    return login_manager.unauthorized()
+            except AttributeError:
                 return login_manager.unauthorized()
             return fn(*args, **kwargs)
         return decorated_view
@@ -84,4 +86,4 @@ def signup():
 @login_required()
 def logout():
     logout_user()
-    return redirect(url_for('main.index'))
+    return redirect(url_for('auth.login'))
