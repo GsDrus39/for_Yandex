@@ -5,6 +5,7 @@ import datetime
 from .models import Line, Ticket, Warnin
 from . import db
 from docxtpl import DocxTemplate
+import hashlib
 
 main = Blueprint('main', __name__)
 
@@ -44,11 +45,14 @@ def print_():
             'date': ticket.flight_date,
             'time': line.time,
             'fio': ticket.fio,
-            'class': ticket.class_
+            'class': ticket.class_,
+            'hash': str(hashlib.md5((str(line.from_) + str(ticket.fio) + str(ticket.flight_date)).encode()).hexdigest())
         }
         doc.render(context)
         doc.save('app/static/res.docx')
-        return '<a href="static/res.docx" download="">Скачать</a>'
+        return '''<script type="text/javascript">
+                setTimeout('document.location.href="static/res.docx";', 200);
+                </script>'''
 
 
 @main.route('/profile', methods=['GET', 'POST'])
